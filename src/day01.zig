@@ -13,6 +13,9 @@ pub fn main() !void {
     print("part 1: {}\n", .{
         part1(data),
     });
+    print("part 2: {}\n", .{
+        part2(data),
+    });
 }
 
 pub fn part1(data: []const u8) u64 {
@@ -58,6 +61,53 @@ pub fn part1(data: []const u8) u64 {
         const diff = @abs(l - r);
 
         total += diff;
+    }
+
+    return total;
+}
+
+pub fn part2(data: []const u8) u64 {
+    var lhs = std.ArrayList(u64).init(std.heap.page_allocator);
+    var rhs_map = std.AutoHashMap(u64, u64).init(std.heap.page_allocator);
+
+    var lines = std.mem.splitScalar(u8, data, '\n');
+
+    while (lines.next()) |line| {
+        var num_arr = std.mem.split(u8, line, "   ");
+
+        const lhs_str_opt = num_arr.next();
+        const rhs_str_opt = num_arr.next();
+        if (lhs_str_opt) |lhs_str| {
+            if (lhs_str.len == 0) {
+                break;
+            }
+            if (rhs_str_opt) |rhs_str| {
+                if (rhs_str.len == 0) {
+                    break;
+                }
+                const lhs_num = std.fmt.parseInt(u64, lhs_str, 10) catch {
+                    @panic("LHS was not a num");
+                };
+                const rhs_num = std.fmt.parseInt(u64, rhs_str, 10) catch {
+                    @panic("RHS was not a num");
+                };
+                lhs.append(lhs_num) catch {
+                    @panic("Could not add to LHS");
+                };
+                var rhs_count = rhs_map.get(rhs_num) orelse 0;
+                rhs_count += 1;
+                rhs_map.put(rhs_num, rhs_count) catch {
+                    @panic("Could not add to RHS map");
+                };
+            }
+        }
+    }
+
+    var total: u64 = 0;
+    for (lhs.items) |l| {
+        const count = rhs_map.get(l) orelse 0;
+
+        total += l * count;
     }
 
     return total;
