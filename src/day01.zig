@@ -8,10 +8,59 @@ const BitSet = std.DynamicBitSet;
 const util = @import("util.zig");
 const gpa = util.gpa;
 
-const data = @embedFile("data/day01.txt");
-
 pub fn main() !void {
-    
+    const data = @embedFile("data/day01.txt");
+    print("part 1: {}\n", .{
+        part1(data),
+    });
+}
+
+pub fn part1(data: []const u8) u64 {
+    var lhs = std.ArrayList(i64).init(std.heap.page_allocator);
+    var rhs = std.ArrayList(i64).init(std.heap.page_allocator);
+
+    var lines = std.mem.splitScalar(u8, data, '\n');
+
+    while (lines.next()) |line| {
+        var num_arr = std.mem.split(u8, line, "   ");
+
+        const lhs_str_opt = num_arr.next();
+        const rhs_str_opt = num_arr.next();
+        if (lhs_str_opt) |lhs_str| {
+            if (lhs_str.len == 0) {
+                break;
+            }
+            if (rhs_str_opt) |rhs_str| {
+                if (rhs_str.len == 0) {
+                    break;
+                }
+                const lhs_num = std.fmt.parseInt(i64, lhs_str, 10) catch {
+                    @panic("LHS was not a num");
+                };
+                const rhs_num = std.fmt.parseInt(i64, rhs_str, 10) catch {
+                    @panic("RHS was not a num");
+                };
+                lhs.append(lhs_num) catch {
+                    @panic("Could not add to LHS");
+                };
+                rhs.append(rhs_num) catch {
+                    @panic("Could not add to RHS");
+                };
+            }
+        }
+    }
+
+    sort(i64, lhs.items, {}, std.sort.asc(i64));
+    sort(i64, rhs.items, {}, std.sort.asc(i64));
+
+    var total: u64 = 0;
+    for (lhs.items, rhs.items) |l, r| {
+        const diff = @abs(l - r);
+
+        total += diff;
+    }
+
+    return total;
 }
 
 // Useful stdlib functions
