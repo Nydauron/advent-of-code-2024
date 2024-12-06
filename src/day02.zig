@@ -8,10 +8,74 @@ const BitSet = std.DynamicBitSet;
 const util = @import("util.zig");
 const gpa = util.gpa;
 
-const data = @embedFile("data/day02.txt");
-
 pub fn main() !void {
-    
+    const data = @embedFile("data/day02.txt");
+    print("part 1: {}\n", .{part1(data)});
+}
+const Direction = enum(u1) {
+    increasing,
+    decreasing,
+};
+
+fn isSafeSnapshot(currentNumber: u64, prevNumber: ?u64, ordering: ?Direction) bool {
+    const minDiff = 1;
+    const maxDiff = 3;
+    if (prevNumber) |p| {
+        if (ordering) |o| {
+            switch (o) {
+                Direction.increasing => {
+                    return (p + minDiff <= currentNumber) and (p + maxDiff >= currentNumber);
+                },
+                Direction.decreasing => {
+                    return (p - minDiff >= currentNumber) and (p - maxDiff <= currentNumber);
+                },
+            }
+        } else {
+            return ((p + minDiff <= currentNumber) and (p + maxDiff >= currentNumber)) or ((p - minDiff >= currentNumber) and (p - maxDiff <= currentNumber));
+        }
+    }
+    return true;
+}
+
+fn part1(data: []const u8) u64 {
+    var lines = std.mem.splitScalar(u8, data, '\n');
+
+    var safeReportCount: u64 = 0;
+    while (lines.next()) |line| {
+        if (std.mem.eql(u8, line, "")) {
+            break;
+        }
+        var numbers = std.mem.splitScalar(u8, line, ' ');
+
+        var currentNumber: ?u64 = null;
+        var ordering: ?Direction = null;
+        var isSafe = true;
+        while (numbers.next()) |num_str| {
+            const num = std.fmt.parseInt(u64, num_str, 10) catch |err| {
+                std.debug.panic("String cannot be parsed as number: \"{s}\" {any}", .{ line, err });
+            };
+
+            if (isSafeSnapshot(num, currentNumber, ordering)) {
+                if (currentNumber) |lastNum| {
+                    if (ordering == null) {
+                        ordering = switch (lastNum < num) {
+                            true => Direction.increasing,
+                            false => Direction.decreasing,
+                        };
+                    }
+                }
+                currentNumber = num;
+            } else {
+                isSafe = false;
+                break;
+            }
+        }
+        if (isSafe) {
+            safeReportCount += 1;
+        }
+    }
+
+    return safeReportCount;
 }
 
 // Useful stdlib functions
