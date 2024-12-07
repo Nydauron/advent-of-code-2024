@@ -8,10 +8,43 @@ const BitSet = std.DynamicBitSet;
 const util = @import("util.zig");
 const gpa = util.gpa;
 
-const data = @embedFile("data/day03.txt");
-
 pub fn main() !void {
-    
+    const data = @embedFile("data/day03.txt");
+    print("part 1: {}\n", .{part1(data)});
+}
+
+fn part1(data: []const u8) u64 {
+    var total: u64 = 0;
+    var dataSlice = data[0..];
+    const mulPrefixStr = "mul(";
+    while (dataSlice.len >= mulPrefixStr.len) {
+        defer dataSlice = dataSlice[1..];
+        const isMul = std.mem.eql(u8, dataSlice[0..mulPrefixStr.len], mulPrefixStr);
+
+        if (!isMul) {
+            continue;
+        }
+        dataSlice = dataSlice[mulPrefixStr.len..];
+        if (dataSlice.len == 0) {
+            continue;
+        }
+        const commaIdx = std.mem.indexOf(u8, dataSlice, ",");
+        const closingParenIdx = std.mem.indexOf(u8, dataSlice, ")");
+
+        if (commaIdx) |cIdx| {
+            const lhsNumber = std.fmt.parseInt(u64, dataSlice[0..cIdx], 10) catch {
+                continue;
+            };
+            if (closingParenIdx) |pIdx| {
+                const rhsNumber = std.fmt.parseInt(u64, dataSlice[cIdx + 1 .. pIdx], 10) catch {
+                    continue;
+                };
+                total += lhsNumber * rhsNumber;
+            }
+        }
+    }
+
+    return total;
 }
 
 // Useful stdlib functions
