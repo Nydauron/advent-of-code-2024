@@ -18,6 +18,40 @@ const Direction = enum(u1) {
     decreasing,
 };
 
+const badLevelsAllowed = 2;
+
+const MemoizationMatrix = struct {
+    arr: [badLevelsAllowed][]bool,
+    allocator: Allocator,
+
+    pub fn init(allocator: Allocator, numLevels: usize) !MemoizationMatrix {
+        var arr = [badLevelsAllowed][]bool{ &[0]bool{}, &[0]bool{} };
+        for (0..badLevelsAllowed) |badLevelIdx| {
+            var row = try allocator.alloc(bool, numLevels + 1);
+
+            for (0..row.len) |rowIdx| {
+                var v = false;
+                if (rowIdx == row.len - 1 or rowIdx == row.len - 2) {
+                    v = true;
+                }
+                row[rowIdx] = v;
+            }
+
+            arr[badLevelIdx] = row[0..];
+        }
+        return .{
+            .arr = arr,
+            .allocator = allocator,
+        };
+    }
+
+    pub fn deinit(self: *MemoizationMatrix) void {
+        for (0..badLevelsAllowed) |idx| {
+            self.allocator.free(self.arr[idx]);
+        }
+    }
+};
+
 fn isSafeSnapshot(currentNumber: u64, prevNumber: ?u64, ordering: ?Direction) bool {
     const minDiff = 1;
     const maxDiff = 3;
@@ -89,6 +123,7 @@ fn part2(data: []const u8) u64 {
         }
         var numbers = std.mem.splitScalar(u8, line, ' ');
         var numArr = std.ArrayList(u64).init(std.heap.page_allocator);
+        defer numArr.deinit();
         while (numbers.next()) |num_str| {
             const num = std.fmt.parseInt(u64, num_str, 10) catch |err| {
                 std.debug.panic("String cannot be parsed as number: \"{s}\" {any}", .{ line, err });
@@ -99,42 +134,15 @@ fn part2(data: []const u8) u64 {
         }
 
         const levelsPerReport: usize = numArr.items.len;
-        const badLevelsAllowed = 2;
 
-        var incMemArr: [badLevelsAllowed][]bool = [badLevelsAllowed][]bool{ &[0]bool{}, &[0]bool{} };
-        var decMemArr: [badLevelsAllowed][]bool = [badLevelsAllowed][]bool{ &[0]bool{}, &[0]bool{} };
-
-        for (0..badLevelsAllowed) |idx| {
-            var row = std.ArrayList(bool).init(std.heap.page_allocator);
-            for (0..levelsPerReport - 1) |_| {
-                row.append(false) catch {
-                    @panic("Could not add to row");
-                };
-            }
-            for (0..2) |_| {
-                row.append(true) catch {
-                    @panic("Could not add to row: true");
-                };
-            }
-
-            incMemArr[idx] = row.items;
-        }
-
-        for (0..badLevelsAllowed) |idx| {
-            var row = std.ArrayList(bool).init(std.heap.page_allocator);
-            for (0..levelsPerReport - 1) |_| {
-                row.append(false) catch {
-                    @panic("Could not add to row");
-                };
-            }
-            for (0..2) |_| {
-                row.append(true) catch {
-                    @panic("Could not add to row: true");
-                };
-            }
-
-            decMemArr[idx] = row.items;
-        }
+        var incMemArr = MemoizationMatrix.init(std.heap.page_allocator, levelsPerReport) catch {
+            @panic("Could not construct increasing memoization matrix");
+        };
+        defer incMemArr.deinit();
+        var decMemArr = MemoizationMatrix.init(std.heap.page_allocator, levelsPerReport) catch {
+            @panic("Could not construct decreasing memoization matrix");
+        };
+        defer decMemArr.deinit();
 
         // backtrack(currIdx, badLevels, ordering);
         // if good level
@@ -145,8 +153,8 @@ fn part2(data: []const u8) u64 {
         const numArrSlice = numArr.items;
         for ([2]Direction{ Direction.increasing, Direction.decreasing }) |direction| {
             const memArr: *[badLevelsAllowed][]bool = switch (direction) {
-                Direction.increasing => &incMemArr,
-                Direction.decreasing => &decMemArr,
+                Direction.increasing => &incMemArr.arr,
+                Direction.decreasing => &decMemArr.arr,
             };
 
             var badLevels: usize = 2;
@@ -169,7 +177,7 @@ fn part2(data: []const u8) u64 {
                 }
             }
         }
-        if (incMemArr[0][0] or incMemArr[1][1] or decMemArr[0][0] or decMemArr[1][1]) {
+        if (incMemArr.arr[0][0] or incMemArr.arr[1][1] or decMemArr.arr[0][0] or decMemArr.arr[1][1]) {
             safeReportCount += 1;
         }
     }
