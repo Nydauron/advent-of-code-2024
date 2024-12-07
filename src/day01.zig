@@ -20,7 +20,9 @@ pub fn main() !void {
 
 pub fn part1(data: []const u8) u64 {
     var lhs = std.ArrayList(i64).init(std.heap.page_allocator);
+    defer lhs.deinit();
     var rhs = std.ArrayList(i64).init(std.heap.page_allocator);
+    defer rhs.deinit();
 
     var lines = std.mem.splitScalar(u8, data, '\n');
 
@@ -68,7 +70,9 @@ pub fn part1(data: []const u8) u64 {
 
 pub fn part2(data: []const u8) u64 {
     var lhs = std.ArrayList(u64).init(std.heap.page_allocator);
+    defer lhs.deinit();
     var rhs_map = std.AutoHashMap(u64, u64).init(std.heap.page_allocator);
+    defer rhs_map.deinit();
 
     var lines = std.mem.splitScalar(u8, data, '\n');
 
