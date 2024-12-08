@@ -14,6 +14,10 @@ pub fn main() !void {
         std.debug.panic("{!}\n", .{err});
     };
     print("part 1: {}\n", .{part1Res});
+    const part2Res = part2(data) catch |err| {
+        std.debug.panic("{!}\n", .{err});
+    };
+    print("part 2: {}\n", .{part2Res});
 }
 
 const WordSearch = struct {
@@ -49,7 +53,7 @@ const matchStr = "XMAS";
 const forwardStartingIdx = 0;
 const reverseStartingIdx = matchStr.len;
 
-fn iterateSearch(wordSearch: *const WordSearch, rowIdx: usize, colIdx: usize, forwardIdx: usize, reverseIdx: usize) struct { forward: MatchState, reverse: MatchState } {
+fn iterateSearch(wordSearch: *const WordSearch, rowIdx: usize, colIdx: usize, forwardIdx: usize, reverseIdx: usize) CurrentIndex {
     var forwardCurrIdx = forwardIdx;
     var reverseCurrIdx = reverseIdx;
 
@@ -216,6 +220,95 @@ fn part1(data: []const u8) !u64 {
     return occurances;
 }
 
+const CellIdx = struct {
+    rowIdx: usize,
+    colIdx: usize,
+};
+
+const CurrentIndex = struct {
+    forward: MatchState,
+    reverse: MatchState,
+};
+
+const MatchString = struct {
+    str: []const u8,
+
+    fn getLeftBound() usize {
+        return 0;
+    }
+
+    fn getRightBound(self: *const MatchString) usize {
+        return self.str.len;
+    }
+};
+
+const part2MatchStr = MatchString{ .str = "MAS" };
+
+fn part2(data: []const u8) !u64 {
+    const wordSearch = try WordSearch.init(std.heap.page_allocator, data);
+    defer wordSearch.deinit();
+
+    var posCurrIdx = CurrentIndex{ .forward = MatchState{ .idx = MatchString.getLeftBound(), .matched = false }, .reverse = MatchState{ .idx = part2MatchStr.getRightBound(), .matched = false } };
+    var negCurrIdx = CurrentIndex{ .forward = MatchState{ .idx = MatchString.getLeftBound(), .matched = false }, .reverse = MatchState{ .idx = part2MatchStr.getRightBound(), .matched = false } };
+    var occurances: u64 = 0;
+
+    for (0..wordSearch.numRows - part2MatchStr.str.len + 1) |rowIdx| {
+        for (0..wordSearch.numCols - part2MatchStr.str.len + 1) |colIdx| {
+            posCurrIdx = CurrentIndex{ .forward = MatchState{ .idx = MatchString.getLeftBound(), .matched = false }, .reverse = MatchState{ .idx = part2MatchStr.getRightBound(), .matched = false } };
+            negCurrIdx = CurrentIndex{ .forward = MatchState{ .idx = MatchString.getLeftBound(), .matched = false }, .reverse = MatchState{ .idx = part2MatchStr.getRightBound(), .matched = false } };
+            for (0..part2MatchStr.str.len) |offset| {
+                const posIdx = CellIdx{ .rowIdx = rowIdx + offset, .colIdx = colIdx + offset };
+                const negIdx = CellIdx{ .rowIdx = rowIdx + part2MatchStr.str.len - 1 - offset, .colIdx = colIdx + offset };
+
+                posCurrIdx = part2IterateSearch(wordSearch.arr.items[posIdx.rowIdx][posIdx.colIdx], posCurrIdx.forward.idx, posCurrIdx.reverse.idx);
+                negCurrIdx = part2IterateSearch(wordSearch.arr.items[negIdx.rowIdx][negIdx.colIdx], negCurrIdx.forward.idx, negCurrIdx.reverse.idx);
+            }
+
+            if ((posCurrIdx.forward.matched or posCurrIdx.reverse.matched) and (negCurrIdx.forward.matched or negCurrIdx.reverse.matched)) {
+                occurances += 1;
+            }
+        }
+    }
+
+    return occurances;
+}
+
+fn part2IterateSearch(currChar: u8, forwardIdx: usize, reverseIdx: usize) CurrentIndex {
+    var forwardCurrIdx = forwardIdx;
+    var reverseCurrIdx = reverseIdx;
+
+    var forwardMatched = false;
+    var reverseMatched = false;
+
+    if (currChar == part2MatchStr.str[forwardCurrIdx]) {
+        forwardCurrIdx += 1;
+        if (forwardCurrIdx == part2MatchStr.str.len) {
+            forwardCurrIdx = MatchString.getLeftBound();
+            forwardMatched = true;
+        }
+    } else {
+        if (currChar == part2MatchStr.str[MatchString.getLeftBound()]) {
+            forwardCurrIdx = MatchString.getLeftBound() + 1;
+        } else {
+            forwardCurrIdx = MatchString.getLeftBound();
+        }
+    }
+    if (currChar == part2MatchStr.str[reverseCurrIdx - 1]) {
+        reverseCurrIdx -= 1;
+        if (reverseCurrIdx == 0) {
+            reverseCurrIdx = part2MatchStr.getRightBound();
+            reverseMatched = true;
+        }
+    } else {
+        if (currChar == part2MatchStr.str[part2MatchStr.getRightBound() - 1]) {
+            reverseCurrIdx = part2MatchStr.getRightBound() - 1;
+        } else {
+            reverseCurrIdx = part2MatchStr.getRightBound();
+        }
+    }
+
+    return .{ .forward = MatchState{ .idx = forwardCurrIdx, .matched = forwardMatched }, .reverse = MatchState{ .idx = reverseCurrIdx, .matched = reverseMatched } };
+}
 // Useful stdlib functions
 const tokenizeAny = std.mem.tokenizeAny;
 const tokenizeSeq = std.mem.tokenizeSequence;
